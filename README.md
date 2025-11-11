@@ -1,4 +1,4 @@
-# 🧠 MediGraph AI  
+# DAMG 7374 - GROUP 3 - MediGraph AI  
 ### *Intelligent Healthcare Knowledge Graph with LLM Integration*
 
 ## 👥 Team Members  
