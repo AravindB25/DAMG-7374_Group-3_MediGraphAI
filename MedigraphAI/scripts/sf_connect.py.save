@@ -1,0 +1,7 @@
+import os
+from dotenv import load_dotenv
+import snowflake.connector as sf
+
+load_dotenv(".env", override=True)
+
+totp = input("Enter current Snowflake TOTP (6 digit
