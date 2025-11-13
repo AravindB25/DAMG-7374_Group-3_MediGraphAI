@@ -56,7 +56,8 @@ It enables semantic exploration of patient data—conditions, medications, and e
 2. ✅ Secure MFA Authentication  
 3. ✅ Neo4j Schema Design & Graph Seeding  
 4. ✅ Streamlit Integration with Q&A and Visualization  
-5. ✅ Successful Professor Demo and Feedback (Next: move to AuraDB)  
+5. ✅ Migration from Neo4j Desktop to AuraDB Cloud
+6. ✅ Successful Professor Demo and Feedback (Next: Add LLM Integration)  
 
 ---
 
