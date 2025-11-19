@@ -71,6 +71,41 @@ def load_patients(conn, driver):
     print(f"✔ Loaded {len(rows)} patients")
 
 
+def load_providers(conn, driver):
+    """
+    Load Provider nodes from V_PROVIDERS:
+    PROVIDER_ID, PROVIDER_NAME, SPECIALTY, STATE, ZIP
+    """
+    print("Loading providers…")
+
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT PROVIDER_ID, PROVIDER_NAME, SPECIALTY, STATE, ZIP
+        FROM MEDIGRAPH.PUBLIC.V_PROVIDERS
+    """)
+    rows = cur.fetchall()
+    cur.close()
+
+    with driver.session(database="neo4j") as session:
+        for prov_id, name, specialty, state, zip_code in rows:
+            session.run(
+                """
+                MERGE (pr:Provider {id: $pid})
+                SET pr.name      = $name,
+                    pr.specialty = $specialty,
+                    pr.state     = $state,
+                    pr.zip       = $zip
+                """,
+                pid=prov_id,
+                name=name,
+                specialty=specialty,
+                state=state,
+                zip=str(zip_code) if zip_code is not None else None,
+            )
+
+    print(f"✔ Loaded {len(rows)} providers")
+
+
 def load_encounters(conn, driver):
     print("Loading encounters…")
     cur = conn.cursor()
@@ -91,6 +126,11 @@ def load_encounters(conn, driver):
                     e.end_time     = $end_time,
                     e.provider_npi = $provider_npi
                 MERGE (p)-[:HAS_ENCOUNTER]->(e)
+
+                // Link to Provider, using provider_npi as the Provider id
+                MERGE (pr:Provider {id: $provider_npi})
+                MERGE (e)-[:HAS_PROVIDER]->(pr)
+                MERGE (p)-[:HAS_PROVIDER]->(pr)
                 """,
                 enc_id=enc_id,
                 pid=pid,
@@ -182,6 +222,7 @@ def main():
 
         # 3) Run ETL steps in a logical order
         load_patients(conn, driver)
+        load_providers(conn, driver)
         load_encounters(conn, driver)
         load_conditions(conn, driver)
         load_medications(conn, driver)
