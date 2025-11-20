@@ -7,6 +7,13 @@ import streamlit as st
 import streamlit.components.v1 as components
 from pyvis.network import Network
 
+# Try to import LLM helper (optional)
+try:
+    from llm_cypher import generate_cypher_from_nl, run_cypher_on_aura
+except Exception:
+    generate_cypher_from_nl = None
+    run_cypher_on_aura = None
+
 # -----------------------------------------------------------------------------
 # Load environment variables
 # -----------------------------------------------------------------------------
@@ -121,6 +128,7 @@ def fetch_snowflake_summary(totp_code: str):
             ("V_ENCOUNTERS", "encounters"),
             ("V_CONDITIONS", "conditions"),
             ("V_MEDICATIONS", "medications"),
+            ("V_PROVIDERS", "providers"),
         ]:
             cur.execute(f"SELECT COUNT(*) FROM {view_name}")
             counts[key] = cur.fetchone()[0]
@@ -165,6 +173,7 @@ def fetch_aura_stats():
                 ("Encounter", "encounters"),
                 ("Condition", "conditions"),
                 ("Medication", "medications"),
+                ("Provider", "providers"),
             ]:
                 result = session.run(
                     f"MATCH (n:{label}) RETURN COUNT(n) AS c"
@@ -191,8 +200,8 @@ def fetch_aura_stats():
 
 def fetch_aura_graph(limit: int = 75) -> str:
     """
-    Fetch a real subgraph from AuraDB (no fake graph):
-    Patients + all their encounters, conditions, medications, providers.
+    Fetch a real subgraph from AuraDB:
+    Patients + all their neighbors (encounters, conditions, medications, providers).
 
     Returns: HTML string with an interactive PyVis network.
     """
@@ -275,7 +284,6 @@ def fetch_aura_graph(limit: int = 75) -> str:
 
         net.toggle_physics(True)
 
-        # IMPORTANT: valid JSON (no "const", valid quotes)
         net.set_options(
             """
             {
@@ -306,16 +314,18 @@ def fetch_aura_graph(limit: int = 75) -> str:
     finally:
         driver.close()
 
-
-
+# -----------------------------------------------------------------------------
+# Rule-based NL → Cypher for AuraDB
+# -----------------------------------------------------------------------------
 def answer_question_from_aura(question: str):
     """
     Simple NL → Cypher router.
 
     Supports:
-      1) "show patients with diabetes"
-      2) "show medications for diabetes"
-      3) "show medications for patient P001"
+      1) Patients with a condition (diabetes, hypertension…)
+      2) Medications for a condition
+      3) Medications for a patient (by ID or by fuzzy name)
+      4) Provider for a patient (by fuzzy name)
     """
     q_raw = question.strip()
     q = q_raw.lower()
@@ -323,32 +333,122 @@ def answer_question_from_aura(question: str):
     driver = get_aura_driver()
     try:
         with driver.session(database="neo4j") as session:
-            # 3) Medications for a given patient ID
-            if "medications for patient" in q:
-                pid = q.split("medications for patient", 1)[1].strip().upper()
+            # 4) Provider for a patient (by fuzzy name)
+            if "provider for patient" in q or "who is the provider for patient" in q:
+                tail = q.split("provider for patient", 1)[1].strip()
+                if not tail:
+                    return (
+                        "Please specify a patient name, e.g. `who is the provider for patient Isaias`.",
+                        None,
+                    )
+
                 cypher = """
-                    MATCH (p:Patient {id: $pid})-[:TAKES_MEDICATION]->(m:Medication)
-                    RETURN p.id AS patient_id,
+                    MATCH (p:Patient)-[:HAS_PROVIDER]->(pr:Provider)
+                    WHERE toLower(p.full_name) CONTAINS toLower($name)
+                    RETURN p.id   AS patient_id,
                            p.full_name AS full_name,
-                           m.code AS rxnorm,
-                           m.name AS medication
+                           pr.id  AS provider_id,
+                           pr.name AS provider_name,
+                           pr.specialty AS specialty
                     LIMIT 50
                 """
-                result = session.run(cypher, pid=pid)
+                result = session.run(cypher, name=tail)
                 rows = list(result)
                 if not rows:
                     return (
-                        f"I couldn't find medications for patient **{pid}**.",
+                        f"I couldn't find any providers for patients matching name **'{tail}'**.",
                         None,
                     )
+
                 df = pd.DataFrame(
                     [
-                        (row["patient_id"], row["full_name"], row["rxnorm"], row["medication"])
+                        (
+                            row["patient_id"],
+                            row["full_name"],
+                            row["provider_id"],
+                            row["provider_name"],
+                            row["specialty"],
+                        )
                         for row in rows
                     ],
-                    columns=["patient_id", "full_name", "rxnorm", "medication"],
+                    columns=[
+                        "patient_id",
+                        "patient_name",
+                        "provider_id",
+                        "provider_name",
+                        "specialty",
+                    ],
                 )
-                return f"Medications for patient **{pid}**:", df
+                return (
+                    f"Providers for patients whose name matches **'{tail}'**:",
+                    df,
+                )
+
+            # 3) Medications for a given patient (ID or fuzzy name)
+            if "medications for patient" in q:
+                tail = q.split("medications for patient", 1)[1].strip()
+                if not tail:
+                    return (
+                        "Please specify a patient **ID or name**, e.g. "
+                        "`show medications for patient 732e16fb-a1aa-b846-c6c2-c00bd4211445` "
+                        "or `show medications for patient Isaias`.",
+                        None,
+                    )
+
+                if "-" in tail:
+                    # treat as patient ID
+                    cypher = """
+                        MATCH (p:Patient {id: $pid})-[:TAKES_MEDICATION]->(m:Medication)
+                        RETURN p.id AS patient_id,
+                               p.full_name AS full_name,
+                               m.code AS rxnorm,
+                               m.name AS medication
+                        LIMIT 50
+                    """
+                    result = session.run(cypher, pid=tail)
+                    rows = list(result)
+                    if not rows:
+                        return (
+                            f"I couldn't find medications for patient ID **{tail}**.",
+                            None,
+                        )
+                    df = pd.DataFrame(
+                        [
+                            (row["patient_id"], row["full_name"], row["rxnorm"], row["medication"])
+                            for row in rows
+                        ],
+                        columns=["patient_id", "full_name", "rxnorm", "medication"],
+                    )
+                    return f"Medications for patient **{tail}**:", df
+                else:
+                    # treat as fuzzy patient name
+                    cypher = """
+                        MATCH (p:Patient)-[:TAKES_MEDICATION]->(m:Medication)
+                        WHERE toLower(p.full_name) CONTAINS toLower($name)
+                        RETURN p.id AS patient_id,
+                               p.full_name AS full_name,
+                               m.code AS rxnorm,
+                               m.name AS medication
+                        LIMIT 50
+                    """
+                    result = session.run(cypher, name=tail)
+                    rows = list(result)
+                    if not rows:
+                        return (
+                            f"I couldn't find medications for any patients matching name **'{tail}'**.",
+                            None,
+                        )
+                    df = pd.DataFrame(
+                        [
+                            (row["patient_id"], row["full_name"], row["rxnorm"], row["medication"])
+                            for row in rows
+                        ],
+                        columns=["patient_id", "full_name", "rxnorm", "medication"],
+                    )
+                    return (
+                        f"Medications for patients whose name matches **'{tail}'**:",
+                        df,
+                    )
 
             # 2) Medications for a condition
             if "medications for" in q or "medication for" in q:
@@ -442,7 +542,9 @@ def answer_question_from_aura(question: str):
                 "- `show patients with diabetes`\n"
                 "- `show patients with hypertension`\n"
                 "- `show medications for diabetes`\n"
-                "- `show medications for patient P001`"
+                "- `show medications for patient 732e16fb-a1aa-b846-c6c2-c00bd4211445`\n"
+                "- `show medications for patient Isaias`\n"
+                "- `who is the provider for patient Isaias`"
             )
             return help_text, None
 
@@ -541,13 +643,21 @@ st.sidebar.caption(
 # -----------------------------------------------------------------------------
 # Main tabs
 # -----------------------------------------------------------------------------
-tab_overview, tab_sf, tab_aura_data, tab_aura_graph, tab_qa = st.tabs(
+(
+    tab_overview,
+    tab_sf,
+    tab_aura_data,
+    tab_aura_graph,
+    tab_qa,
+    tab_llm,
+) = st.tabs(
     [
         "Product Overview",
         "Snowflake Views",
         "AuraDB Data",
         "AuraDB Graph",
         "NL Q&A",
+        "LLM Q&A",
     ]
 )
 
@@ -581,7 +691,8 @@ with tab_overview:
 
             1. Synthetic EHR data ingested into **Snowflake MEDIGRAPH**.  
             2. Python ETL (`sf_to_aura.py`) builds a **patient journey graph** in AuraDB.  
-            3. This app surfaces counts, graph structure, and **NL Q&A** for conditions & medications.  
+            3. This app surfaces counts, graph structure, and **NL Q&A** for conditions, medications, and providers.  
+            4. An optional **LLM tab** can generate Cypher automatically from natural language.  
             """
         )
 
@@ -597,11 +708,12 @@ with tab_sf:
         counts = st.session_state.sf_counts or {}
         sample = st.session_state.sf_patients_sample
 
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("V_PATIENTS", counts.get("patients", 0))
         c2.metric("V_ENCOUNTERS", counts.get("encounters", 0))
         c3.metric("V_CONDITIONS", counts.get("conditions", 0))
         c4.metric("V_MEDICATIONS", counts.get("medications", 0))
+        c5.metric("V_PROVIDERS", counts.get("providers", 0))
 
         st.markdown("### Sample patients from `V_PATIENTS`")
         st.dataframe(sample, use_container_width=True)
@@ -618,11 +730,12 @@ with tab_aura_data:
         node_counts = st.session_state.aura_node_counts or {}
         rel_df = st.session_state.aura_rel_df
 
-        c1, c2, c3, c4 = st.columns(4)
+        c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("Patient nodes", node_counts.get("patients", 0))
         c2.metric("Encounter nodes", node_counts.get("encounters", 0))
         c3.metric("Condition nodes", node_counts.get("conditions", 0))
         c4.metric("Medication nodes", node_counts.get("medications", 0))
+        c5.metric("Provider nodes", node_counts.get("providers", 0))
 
         st.markdown("### Relationship Types in AuraDB")
         st.dataframe(rel_df, use_container_width=True)
@@ -631,7 +744,7 @@ with tab_aura_data:
             """
             These counts are pulled **directly from AuraDB**, reflecting all
             relationships such as `HAS_ENCOUNTER`, `HAS_CONDITION`,
-            `TAKES_MEDICATION`, `HAS_MEDICATION`, `DIAGNOSED`, and `PRESCRIBED`
+            `TAKES_MEDICATION`, `HAS_MEDICATION`, `HAS_PROVIDER`, `DIAGNOSED`, and `PRESCRIBED`
             that exist in your graph.
             """
         )
@@ -681,21 +794,25 @@ with tab_aura_graph:
 # Tab: NL Q&A
 # -----------------------------------------------------------------------------
 with tab_qa:
-    st.subheader("Natural-Language Q&A over AuraDB")
+    st.subheader("Natural-Language Q&A over AuraDB (Rule-based)")
 
     st.markdown(
         """
         **Supported question types right now:**
 
-        1. Patients by condition  
-           - `show patients with diabetes`  
-           - `show patients with hypertension`  
+        1. **Patients by condition**
+           - `show patients with diabetes`
+           - `show patients with hypertension`
 
-        2. Medications by condition  
-           - `show medications for diabetes`  
+        2. **Medications by condition**
+           - `show medications for diabetes`
 
-        3. Medications by patient  
-           - `show medications for patient P001`  
+        3. **Medications by patient (ID or name)**
+           - `show medications for patient 732e16fb-a1aa-b846-c6c2-c00bd4211445`
+           - `show medications for patient Isaias`
+
+        4. **Providers by patient (name)**
+           - `who is the provider for patient Isaias`
         """
     )
 
@@ -703,7 +820,7 @@ with tab_qa:
         st.info("Please connect to AuraDB from the sidebar first.")
     else:
         question = st.text_input(
-            "Ask a question about conditions or medications:",
+            "Ask a question about conditions, medications, or providers:",
             value="show patients with diabetes",
         )
         run = st.button("Run NL query")
@@ -716,3 +833,56 @@ with tab_qa:
                 st.markdown(answer_text)
                 if df is not None and not df.empty:
                     st.dataframe(df, use_container_width=True)
+
+# -----------------------------------------------------------------------------
+# Tab: LLM Q&A (using llm_cypher.py)
+# -----------------------------------------------------------------------------
+with tab_llm:
+    st.subheader("LLM-powered Q&A (Cypher Generator)")
+
+    if generate_cypher_from_nl is None:
+        st.warning(
+            "LLM integration is not available. Make sure `llm_cypher.py` exists and "
+            "your `.env` has a valid `OPENAI_API_KEY`."
+        )
+    elif not st.session_state.aura_connected:
+        st.info("Please connect to AuraDB from the sidebar first.")
+    else:
+        llm_question = st.text_input(
+            "Ask any graph question (the LLM will propose Cypher):",
+            value="List 5 patients with their conditions and medications",
+        )
+        if st.button("Run LLM query"):
+            if not llm_question.strip():
+                st.warning("Please type a question first.")
+            else:
+                with st.spinner("Calling LLM and running Cypher…"):
+                    try:
+                        cypher = generate_cypher_from_nl(llm_question)
+                        st.markdown("**Generated Cypher:**")
+                        st.code(cypher, language="cypher")
+
+                        # Prefer running via helper if available
+                        if run_cypher_on_aura is not None:
+                            cols, rows = run_cypher_on_aura(cypher)
+                            if not rows:
+                                st.info("Query executed, but returned no rows.")
+                            else:
+                                df = pd.DataFrame(rows, columns=cols)
+                                st.dataframe(df, use_container_width=True)
+                        else:
+                            # Fallback: run directly
+                            driver = get_aura_driver()
+                            with driver.session(database="neo4j") as session:
+                                result = session.run(cypher)
+                                records = list(result)
+                                keys = list(result.keys())
+                            if not records:
+                                st.info("Query executed, but returned no rows.")
+                            else:
+                                data = [[rec.get(k) for k in keys] for rec in records]
+                                df = pd.DataFrame(data, columns=keys)
+                                st.dataframe(df, use_container_width=True)
+
+                    except Exception as e:
+                        st.error(f"LLM/Cypher execution failed: {e}")
