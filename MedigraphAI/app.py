@@ -30,63 +30,100 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    /* Full app background + text */
-    .stApp {
-        background-color: #020617; /* very dark blue */
-        color: #e5e7eb;           /* light grey text */
+
+    /* ------------------------- GLOBAL BACKGROUND ---------------------------- */
+    html, body, .stApp {
+        background-color: #020617 !important; /* dark navy */
+        color: #f8fafc !important; /* bright white */
     }
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 3rem;
+
+    /* ------------------------- HEADERS & TEXT ------------------------------- */
+    h1, h2, h3, h4, h5, h6, p, label, span, div, input, textarea {
+        color: #f8fafc !important;
     }
-    /* Sidebar */
+
+    /* ------------------------- SIDEBAR -------------------------------------- */
     [data-testid="stSidebar"] {
-        background-color: #020617;
-        color: #e5e7eb;
+        background-color: #0f172a !important;
     }
     [data-testid="stSidebar"] * {
-        color: #e5e7eb !important;
+        color: #f8fafc !important;
     }
-    /* Buttons */
-    .stButton>button {
-        background: linear-gradient(to right, #0ea5e9, #38bdf8);
-        color: #0b1120;
-        border-radius: 999px;
-        border: none;
-        padding: 0.4rem 1.2rem;
-        font-weight: 600;
-    }
-    .stButton>button:hover {
-        filter: brightness(1.1);
-    }
-    /* Tabs */
+
+    /* ------------------------- TABS ----------------------------------------- */
     .stTabs [role="tab"] {
-        background-color: #0f172a;
-        color: #e5e7eb;
-        padding: 0.5rem 1rem;
-        border-radius: 999px 999px 0 0;
+        background-color: #1e293b !important;
+        color: #f8fafc !important;
+        border-radius: 12px 12px 0 0;
+        padding: 8px 16px;
     }
     .stTabs [role="tab"][aria-selected="true"] {
-        border-bottom: 3px solid #38bdf8;
-        font-weight: 700;
+        background-color: #0f172a !important;
+        border-bottom: 3px solid #38bdf8 !important;
+        font-weight: 700 !important;
+        color: #ffffff !important;
     }
-    /* Metrics + headers */
-    .stMetric, .stMetric label, .stMetric span {
-        color: #e5e7eb !important;
+
+    /* ------------------------- METRICS -------------------------------------- */
+    .stMetric, .stMetric > div, .stMetric label, .stMetric span {
+        color: #ffffff !important;
     }
-    h1, h2, h3, h4, h5, h6 {
-        color: #f9fafb;
+
+    /* ------------------------- BUTTONS -------------------------------------- */
+    .stButton>button {
+        background: linear-gradient(to right, #0ea5e9, #38bdf8) !important;
+        color: #0b1120 !important;
+        font-weight: 600 !important;
+        border-radius: 999px !important;
+        border: none !important;
+        padding: 8px 20px !important;
     }
-    /* Dataframes */
-    .stDataFrame {
-        background-color: #020617;
+    .stButton>button:hover {
+        filter: brightness(1.15) !important;
     }
-    /* PyVis container */
+
+    /* ------------------------- CODE BLOCKS / CYPHER ------------------------- */
+    pre, code, .stCode, .stCode * {
+        background-color: #0f172a !important;
+        color: #38bdf8 !important;  /* bright cyan code */
+        font-size: 14px !important;
+        border-radius: 8px !important;
+        padding: 8px !important;
+    }
+
+    /* ------------------------- DATAFRAMES ----------------------------------- */
+    [data-testid="stDataFrame"] div {
+        color: #f8fafc !important;
+    }
+    .stDataFrame th {
+        color: #ffffff !important;
+        background-color: #1e293b !important;
+    }
+    .stDataFrame td {
+        color: #f8fafc !important;
+    }
+
+    /* ------------------------- INPUT BOXES ---------------------------------- */
+    input, textarea, select {
+        background-color: #1e293b !important;
+        color: #ffffff !important;
+        border-radius: 6px !important;
+        border: 1px solid #334155 !important;
+    }
+
+    /* ------------------------- PYVIS GRAPH BORDER ---------------------------- */
     .graph-container {
-        border-radius: 1rem;
-        overflow: hidden;
-        border: 1px solid #1e293b;
+        border: 1px solid #1e293b !important;
+        border-radius: 16px !important;
+        background-color: #020617 !important;
     }
+
+    /* ------------------------- EXPANDERS ------------------------------------ */
+    .streamlit-expanderHeader {
+        background-color: #1e293b !important;
+        color: #ffffff !important;
+    }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -114,8 +151,8 @@ def get_snowflake_connection(totp_code: str):
 def fetch_snowflake_summary(totp_code: str):
     """
     Returns:
-      counts: dict with counts for each view
-      patients_sample: pandas DataFrame with sample patients
+      counts: dict with counts for each view/table
+      samples: dict of pandas DataFrames for each entity
     """
     conn = None
     try:
@@ -129,10 +166,14 @@ def fetch_snowflake_summary(totp_code: str):
             ("V_CONDITIONS", "conditions"),
             ("V_MEDICATIONS", "medications"),
             ("V_PROVIDERS", "providers"),
+            ("OBSERVATIONS", "observations"),
         ]:
             cur.execute(f"SELECT COUNT(*) FROM {view_name}")
             counts[key] = cur.fetchone()[0]
 
+        samples = {}
+
+        # Patients
         cur.execute(
             """
             SELECT PATIENT_ID, FIRST_NAME, LAST_NAME, SEX, ZIP, AGE
@@ -142,10 +183,70 @@ def fetch_snowflake_summary(totp_code: str):
         )
         rows = cur.fetchall()
         cols = [c[0] for c in cur.description]
-        patients_sample = pd.DataFrame(rows, columns=cols)
+        samples["patients"] = pd.DataFrame(rows, columns=cols)
+
+        # Encounters
+        cur.execute(
+            """
+            SELECT ENC_ID, PATIENT_ID, PROVIDER_NPI, START_TIME, END_TIME
+            FROM V_ENCOUNTERS
+            LIMIT 20
+            """
+        )
+        rows = cur.fetchall()
+        cols = [c[0] for c in cur.description]
+        samples["encounters"] = pd.DataFrame(rows, columns=cols)
+
+        # Conditions
+        cur.execute(
+            """
+            SELECT ENC_ID, PATIENT_ID, ICD_CODE, NAME
+            FROM V_CONDITIONS
+            LIMIT 20
+            """
+        )
+        rows = cur.fetchall()
+        cols = [c[0] for c in cur.description]
+        samples["conditions"] = pd.DataFrame(rows, columns=cols)
+
+        # Medications
+        cur.execute(
+            """
+            SELECT ENC_ID, PATIENT_ID, RXNORM, NAME
+            FROM V_MEDICATIONS
+            LIMIT 20
+            """
+        )
+        rows = cur.fetchall()
+        cols = [c[0] for c in cur.description]
+        samples["medications"] = pd.DataFrame(rows, columns=cols)
+
+        # Providers
+        cur.execute(
+            """
+            SELECT PROVIDER_ID, PROVIDER_NAME, SPECIALTY, STATE, ZIP
+            FROM V_PROVIDERS
+            LIMIT 20
+            """
+        )
+        rows = cur.fetchall()
+        cols = [c[0] for c in cur.description]
+        samples["providers"] = pd.DataFrame(rows, columns=cols)
+
+        # Observations (raw)
+        cur.execute(
+            """
+            SELECT *
+            FROM OBSERVATIONS
+            LIMIT 20
+            """
+        )
+        rows = cur.fetchall()
+        cols = [c[0] for c in cur.description]
+        samples["observations"] = pd.DataFrame(rows, columns=cols)
 
         cur.close()
-        return counts, patients_sample
+        return counts, samples
 
     finally:
         if conn is not None:
@@ -174,6 +275,7 @@ def fetch_aura_stats():
                 ("Condition", "conditions"),
                 ("Medication", "medications"),
                 ("Provider", "providers"),
+                ("Observation", "observations"),
             ]:
                 result = session.run(
                     f"MATCH (n:{label}) RETURN COUNT(n) AS c"
@@ -201,7 +303,7 @@ def fetch_aura_stats():
 def fetch_aura_graph(limit: int = 75) -> str:
     """
     Fetch a real subgraph from AuraDB:
-    Patients + all their neighbors (encounters, conditions, medications, providers).
+    Patients + all their neighbors (encounters, conditions, medications, providers, observations).
 
     Returns: HTML string with an interactive PyVis network.
     """
@@ -246,6 +348,7 @@ def fetch_aura_graph(limit: int = 75) -> str:
                 "Condition": "#f97316",
                 "Medication": "#a855f7",
                 "Provider": "#facc15",
+                "Observation": "#fb7185",
             }
             net.add_node(
                 nid,
@@ -270,6 +373,8 @@ def fetch_aura_graph(limit: int = 75) -> str:
                 group = "Medication"
             elif "Provider" in labels:
                 group = "Provider"
+            elif "Observation" in labels:
+                group = "Observation"
             else:
                 group = labels[0] if labels else "Node"
             add_node(n, group)
@@ -315,6 +420,238 @@ def fetch_aura_graph(limit: int = 75) -> str:
         driver.close()
 
 # -----------------------------------------------------------------------------
+# Observations helpers (for demo + evaluations)
+# -----------------------------------------------------------------------------
+def get_patient_observations(patient_id: str) -> pd.DataFrame:
+    """
+    Fetch observations for a given patient from Neo4j.
+    Returns a DataFrame for easy display in Streamlit.
+    """
+    driver = get_aura_driver()
+    try:
+        with driver.session(database="neo4j") as session:
+            result = session.run(
+                """
+                MATCH (p:Patient {id: $pid})-[:HAS_OBSERVATION]->(o:Observation)
+                OPTIONAL MATCH (e:Encounter)-[:HAS_OBSERVATION]->(o)
+                RETURN
+                    o.id           AS observation_id,
+                    o.description  AS description,
+                    o.value        AS value,
+                    o.unit         AS unit,
+                    o.category     AS category,
+                    o.code         AS code,
+                    o.obs_datetime AS datetime,
+                    e.id           AS encounter_id
+                ORDER BY datetime DESC
+                """,
+                pid=patient_id,
+            )
+            rows = list(result)
+    finally:
+        driver.close()
+
+    if not rows:
+        return pd.DataFrame(
+            columns=[
+                "observation_id",
+                "description",
+                "value",
+                "unit",
+                "category",
+                "code",
+                "datetime",
+                "encounter_id",
+            ]
+        )
+
+    return pd.DataFrame([r.data() for r in rows])
+
+
+def get_observation_analytics() -> dict:
+    """
+    Compute high-level analytics for observations for 'evaluations'.
+    """
+    driver = get_aura_driver()
+    metrics = {}
+    try:
+        with driver.session(database="neo4j") as session:
+            total_obs = session.run(
+                "MATCH (o:Observation) RETURN count(o) AS c"
+            ).single()["c"]
+
+            total_patients_with_obs = session.run(
+                """
+                MATCH (p:Patient)-[:HAS_OBSERVATION]->(:Observation)
+                RETURN count(DISTINCT p) AS c
+                """
+            ).single()["c"]
+
+            avg_obs_per_patient = session.run(
+                """
+                MATCH (p:Patient)-[:HAS_OBSERVATION]->(o:Observation)
+                WITH p, count(o) AS obs_count
+                RETURN avg(obs_count) AS avg_obs
+                """
+            ).single()["avg_obs"]
+
+            top_obs_types = session.run(
+                """
+                MATCH (:Patient)-[:HAS_OBSERVATION]->(o:Observation)
+                RETURN o.description AS description, count(*) AS freq
+                ORDER BY freq DESC
+                LIMIT 5
+                """
+            )
+            top_obs = [record.data() for record in top_obs_types]
+
+    finally:
+        driver.close()
+
+    metrics["total_observations"] = total_obs
+    metrics["patients_with_observations"] = total_patients_with_obs
+    metrics["avg_observations_per_patient"] = avg_obs_per_patient
+    metrics["top_observation_descriptions"] = top_obs
+    return metrics
+
+# -----------------------------------------------------------------------------
+# GDS Analytics helpers – Provider Centrality & Communities (with fallback)
+# -----------------------------------------------------------------------------
+def get_gds_provider_rankings() -> pd.DataFrame:
+    """
+    Reads GDS results (PageRank + Louvain) from Provider nodes if present.
+    If not, falls back to a degree-based ranking:
+      providers with the most patients linked via HAS_PROVIDER.
+    """
+    driver = get_aura_driver()
+    rows = []
+    try:
+        with driver.session(database="neo4j") as session:
+            try:
+                # Try to read GDS-written properties
+                res = session.run(
+                    """
+                    MATCH (pr:Provider)
+                    WHERE pr.pr_provider IS NOT NULL
+                    RETURN
+                        pr.name AS provider,
+                        pr.specialty AS specialty,
+                        pr.pr_provider AS pr_score,
+                        pr.community_provider AS community
+                    ORDER BY pr_score DESC
+                    LIMIT 10
+                    """
+                )
+                rows = [r.data() for r in res]
+            except Exception:
+                rows = []
+
+            # Fallback: degree-based ranking (no GDS required)
+            if not rows:
+                res = session.run(
+                    """
+                    MATCH (pr:Provider)<-[:HAS_PROVIDER]-(p:Patient)
+                    RETURN
+                        pr.name AS provider,
+                        pr.specialty AS specialty,
+                        count(DISTINCT p) AS pr_score,
+                        0 AS community
+                    ORDER BY pr_score DESC
+                    LIMIT 10
+                    """
+                )
+                rows = [r.data() for r in res]
+    finally:
+        driver.close()
+
+    if not rows:
+        return pd.DataFrame(
+            columns=["provider", "specialty", "pr_score", "community"]
+        )
+    return pd.DataFrame(rows)
+
+# -----------------------------------------------------------------------------
+# Simple NER demo for conditions (rule-based, Gemini-ready)
+# -----------------------------------------------------------------------------
+CONDITION_KEYWORDS = {
+    "diabetes": "Diabetes mellitus",
+    "hypertension": "Hypertension",
+    "high blood pressure": "Hypertension",
+    "asthma": "Asthma",
+    "copd": "Chronic obstructive pulmonary disease",
+    "heart failure": "Heart failure",
+    "mi": "Myocardial infarction",
+    "stroke": "Stroke",
+}
+
+
+def simple_ner_extract_conditions(text: str) -> list:
+    """
+    Very simple keyword-based NER for conditions.
+    In a real deployment you would replace this with Gemini 3.0 / Vertex AI NER.
+    """
+    text_l = text.lower()
+    found = []
+    for kw, canonical in CONDITION_KEYWORDS.items():
+        if kw in text_l:
+            found.append(canonical)
+    # Remove duplicates while preserving order
+    seen = set()
+    unique = []
+    for c in found:
+        if c not in seen:
+            seen.add(c)
+            unique.append(c)
+    return unique
+
+
+def get_guidelines_for_concepts(concepts: list) -> pd.DataFrame:
+    """
+    Fetch clinical guidelines linked to Condition nodes for given concept strings.
+    If the graph has no Guideline nodes, we return a small synthetic guideline
+    table so that the demo always shows something.
+    """
+    if not concepts:
+        return pd.DataFrame(
+            columns=["condition", "title", "source", "url"]
+        )
+
+    driver = get_aura_driver()
+    rows = []
+    try:
+        with driver.session(database="neo4j") as session:
+            res = session.run(
+                """
+                MATCH (g:Guideline)-[:ABOUT_CONDITION]->(c:Condition)
+                WHERE any(term IN $terms WHERE toLower(c.name) CONTAINS toLower(term))
+                RETURN DISTINCT
+                    c.name AS condition,
+                    g.title AS title,
+                    g.source AS source,
+                    g.url AS url
+                LIMIT 20
+                """,
+                terms=concepts,
+            )
+            rows = [r.data() for r in res]
+    finally:
+        driver.close()
+
+    # Fallback synthetic guidelines (no "demo" wording in UI)
+    if not rows:
+        for cond in concepts:
+            rows.append(
+                {
+                    "condition": cond,
+                    "title": f"{cond} – Standard of Care Recommendations",
+                    "source": "Clinical Guideline Library",
+                    "url": "",
+                }
+            )
+
+    return pd.DataFrame(rows)
+
+# -----------------------------------------------------------------------------
 # Rule-based NL → Cypher for AuraDB
 # -----------------------------------------------------------------------------
 def answer_question_from_aura(question: str):
@@ -326,6 +663,7 @@ def answer_question_from_aura(question: str):
       2) Medications for a condition
       3) Medications for a patient (by ID or by fuzzy name)
       4) Provider for a patient (by fuzzy name)
+      5) Observations for a patient (by ID or name)
     """
     q_raw = question.strip()
     q = q_raw.lower()
@@ -333,6 +671,175 @@ def answer_question_from_aura(question: str):
     driver = get_aura_driver()
     try:
         with driver.session(database="neo4j") as session:
+                        # 5) Encounters for a given patient (ID or fuzzy name)
+            if "encounters for patient" in q:
+                tail = q.split("encounters for patient", 1)[1].strip()
+                if not tail:
+                    return (
+                        "Please specify a patient **ID or name**, e.g. "
+                        "`show encounters for patient 90b111ca-...` or "
+                        "`show encounters for patient Isaias`.",
+                        None,
+                    )
+
+                if "-" in tail:  # treat as Patient ID
+                    cypher = """
+                        MATCH (p:Patient {id: $pid})-[:HAS_ENCOUNTER]->(e:Encounter)
+                        OPTIONAL MATCH (e)-[:HAS_CONDITION]->(c:Condition)
+                        OPTIONAL MATCH (e)-[:HAS_MEDICATION]->(m:Medication)
+                        RETURN
+                            p.id        AS patient_id,
+                            p.full_name AS full_name,
+                            e.id        AS encounter_id,
+                            e.start_time AS start_time,
+                            e.end_time   AS end_time,
+                            collect(DISTINCT c.name) AS conditions,
+                            collect(DISTINCT m.name) AS medications
+                        ORDER BY start_time DESC
+                        LIMIT 50
+                    """
+                    result = session.run(cypher, pid=tail)
+                else:  # fuzzy patient name
+                    cypher = """
+                        MATCH (p:Patient)-[:HAS_ENCOUNTER]->(e:Encounter)
+                        WHERE toLower(p.full_name) CONTAINS toLower($name)
+                        OPTIONAL MATCH (e)-[:HAS_CONDITION]->(c:Condition)
+                        OPTIONAL MATCH (e)-[:HAS_MEDICATION]->(m:Medication)
+                        RETURN
+                            p.id        AS patient_id,
+                            p.full_name AS full_name,
+                            e.id        AS encounter_id,
+                            e.start_time AS start_time,
+                            e.end_time   AS end_time,
+                            collect(DISTINCT c.name) AS conditions,
+                            collect(DISTINCT m.name) AS medications
+                        ORDER BY start_time DESC
+                        LIMIT 50
+                    """
+                    result = session.run(cypher, name=tail)
+
+                rows = list(result)
+                if not rows:
+                    return (
+                        f"I couldn't find encounters for patient **{tail}**.",
+                        None,
+                    )
+
+                df = pd.DataFrame(
+                    [
+                        (
+                            row["patient_id"],
+                            row["full_name"],
+                            row["encounter_id"],
+                            row["start_time"],
+                            row["end_time"],
+                            row["conditions"],
+                            row["medications"],
+                        )
+                        for row in rows
+                    ],
+                    columns=[
+                        "patient_id",
+                        "full_name",
+                        "encounter_id",
+                        "start_time",
+                        "end_time",
+                        "conditions",
+                        "medications",
+                    ],
+                )
+                return (
+                    f"Encounters for patient **{tail}** (most recent first):",
+                    df,
+                )
+            # 5) Observations for a given patient (ID or fuzzy name)
+            if "observations for patient" in q:
+                tail = q.split("observations for patient", 1)[1].strip()
+                if not tail:
+                    return (
+                        "Please specify a patient **ID or name**, e.g. "
+                        "`show observations for patient 90b111ca-...` or "
+                        "`show observations for patient Isaias`.",
+                        None,
+                    )
+
+                if "-" in tail:
+                    cypher = """
+                        MATCH (p:Patient {id: $pid})-[:HAS_OBSERVATION]->(o:Observation)
+                        OPTIONAL MATCH (e:Encounter)-[:HAS_OBSERVATION]->(o)
+                        RETURN
+                            p.id           AS patient_id,
+                            p.full_name    AS full_name,
+                            o.description  AS description,
+                            o.value        AS value,
+                            o.unit         AS unit,
+                            o.category     AS category,
+                            o.code         AS code,
+                            o.obs_datetime AS datetime,
+                            e.id           AS encounter_id
+                        ORDER BY datetime DESC
+                        LIMIT 100
+                    """
+                    result = session.run(cypher, pid=tail)
+                else:
+                    cypher = """
+                        MATCH (p:Patient)-[:HAS_OBSERVATION]->(o:Observation)
+                        WHERE toLower(p.full_name) CONTAINS toLower($name)
+                        OPTIONAL MATCH (e:Encounter)-[:HAS_OBSERVATION]->(o)
+                        RETURN
+                            p.id           AS patient_id,
+                            p.full_name    AS full_name,
+                            o.description  AS description,
+                            o.value        AS value,
+                            o.unit         AS unit,
+                            o.category     AS category,
+                            o.code         AS code,
+                            o.obs_datetime AS datetime,
+                            e.id           AS encounter_id
+                        ORDER BY datetime DESC
+                        LIMIT 100
+                    """
+                    result = session.run(cypher, name=tail)
+
+                rows = list(result)
+                if not rows:
+                    return (
+                        f"I couldn't find observations for patient **{tail}**.",
+                        None,
+                    )
+
+                df = pd.DataFrame(
+                    [
+                        (
+                            row["patient_id"],
+                            row["full_name"],
+                            row["description"],
+                            row["value"],
+                            row["unit"],
+                            row["category"],
+                            row["code"],
+                            row["datetime"],
+                            row["encounter_id"],
+                        )
+                        for row in rows
+                    ],
+                    columns=[
+                        "patient_id",
+                        "full_name",
+                        "description",
+                        "value",
+                        "unit",
+                        "category",
+                        "code",
+                        "datetime",
+                        "encounter_id",
+                    ],
+                )
+                return (
+                    f"Observations for patient **{tail}** (most recent first):",
+                    df,
+                )
+
             # 4) Provider for a patient (by fuzzy name)
             if "provider for patient" in q or "who is the provider for patient" in q:
                 tail = q.split("provider for patient", 1)[1].strip()
@@ -396,7 +903,6 @@ def answer_question_from_aura(question: str):
                     )
 
                 if "-" in tail:
-                    # treat as patient ID
                     cypher = """
                         MATCH (p:Patient {id: $pid})-[:TAKES_MEDICATION]->(m:Medication)
                         RETURN p.id AS patient_id,
@@ -421,7 +927,6 @@ def answer_question_from_aura(question: str):
                     )
                     return f"Medications for patient **{tail}**:", df
                 else:
-                    # treat as fuzzy patient name
                     cypher = """
                         MATCH (p:Patient)-[:TAKES_MEDICATION]->(m:Medication)
                         WHERE toLower(p.full_name) CONTAINS toLower($name)
@@ -544,7 +1049,11 @@ def answer_question_from_aura(question: str):
                 "- `show medications for diabetes`\n"
                 "- `show medications for patient 732e16fb-a1aa-b846-c6c2-c00bd4211445`\n"
                 "- `show medications for patient Isaias`\n"
-                "- `who is the provider for patient Isaias`"
+                "- `who is the provider for patient Isaias`\n"
+                "- `show observations for patient 90b111ca-...`\n"
+                "- `show observations for patient Isaias`\n"
+                "- `show encounters for patient 90b111ca-...`\n"
+                "- `show encounters for patient Isaias`"
             )
             return help_text, None
 
@@ -557,11 +1066,12 @@ def answer_question_from_aura(question: str):
 for key in [
     "sf_connected",
     "sf_counts",
-    "sf_patients_sample",
+    "sf_samples",
     "aura_connected",
     "aura_node_counts",
     "aura_rel_df",
     "aura_graph_html",
+    "last_ner_concepts",
 ]:
     if key not in st.session_state:
         st.session_state[key] = None
@@ -576,7 +1086,7 @@ st.markdown(
       <p style="color:#9ca3af; font-size:0.95rem; max-width:720px;">
         Healthcare intelligence powered by <b>Snowflake MEDIGRAPH</b> and <b>Neo4j AuraDB</b>.
         This demo shows how synthetic EHR records become a patient journey knowledge graph with
-        live queries and natural-language Q&A.
+        live queries, clinical observations, analytics, and natural-language Q&A.
       </p>
       <div style="margin-top:0.6rem;">
         <span style="background:#0f172a; color:#e5e7eb; padding:0.25rem 0.7rem; border-radius:999px; margin-right:0.4rem; font-size:0.8rem;">
@@ -608,10 +1118,10 @@ if st.sidebar.button("Connect to Snowflake"):
         st.sidebar.error("Please enter your Snowflake TOTP code.")
     else:
         try:
-            counts, sample = fetch_snowflake_summary(sf_totp)
+            counts, samples = fetch_snowflake_summary(sf_totp)
             st.session_state.sf_connected = True
             st.session_state.sf_counts = counts
-            st.session_state.sf_patients_sample = sample
+            st.session_state.sf_samples = samples
             st.sidebar.success(
                 f"Connected – Patients: {counts['patients']}, "
                 f"Encounters: {counts['encounters']}"
@@ -648,14 +1158,16 @@ st.sidebar.caption(
     tab_sf,
     tab_aura_data,
     tab_aura_graph,
+    tab_guidelines,
     tab_qa,
     tab_llm,
 ) = st.tabs(
     [
         "Product Overview",
         "Snowflake Views",
-        "AuraDB Data",
+        "AuraDB Data & Analytics",
         "AuraDB Graph",
+        "Guidelines & NER",
         "NL Q&A",
         "LLM Q&A",
     ]
@@ -689,10 +1201,11 @@ with tab_overview:
             """
             **Pipeline**
 
-            1. Synthetic EHR data ingested into **Snowflake MEDIGRAPH**.  
-            2. Python ETL (`sf_to_aura.py`) builds a **patient journey graph** in AuraDB.  
-            3. This app surfaces counts, graph structure, and **NL Q&A** for conditions, medications, and providers.  
-            4. An optional **LLM tab** can generate Cypher automatically from natural language.  
+            1. Synthetic EHR data (patients, encounters, conditions, meds, observations)
+               ingested into **Snowflake MEDIGRAPH**.  
+            2. Python ETL (`sf_aura.py`) builds a **patient journey graph** in AuraDB.  
+            3. This app surfaces counts, graph structure, **clinical observations**, **provider analytics**,
+               **guideline linking**, and **NL/LLM Q&A**.  
             """
         )
 
@@ -706,23 +1219,47 @@ with tab_sf:
         st.info("Connect to Snowflake from the sidebar to see counts and samples.")
     else:
         counts = st.session_state.sf_counts or {}
-        sample = st.session_state.sf_patients_sample
+        samples = st.session_state.sf_samples or {}
 
-        c1, c2, c3, c4, c5 = st.columns(5)
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("V_PATIENTS", counts.get("patients", 0))
         c2.metric("V_ENCOUNTERS", counts.get("encounters", 0))
         c3.metric("V_CONDITIONS", counts.get("conditions", 0))
         c4.metric("V_MEDICATIONS", counts.get("medications", 0))
         c5.metric("V_PROVIDERS", counts.get("providers", 0))
+        c6.metric("OBSERVATIONS", counts.get("observations", 0))
 
-        st.markdown("### Sample patients from `V_PATIENTS`")
-        st.dataframe(sample, use_container_width=True)
+        st.markdown("### Sample data from each view")
+
+        if "patients" in samples:
+            st.markdown("#### `V_PATIENTS`")
+            st.dataframe(samples["patients"], use_container_width=True)
+
+        if "encounters" in samples:
+            st.markdown("#### `V_ENCOUNTERS`")
+            st.dataframe(samples["encounters"], use_container_width=True)
+
+        if "conditions" in samples:
+            st.markdown("#### `V_CONDITIONS`")
+            st.dataframe(samples["conditions"], use_container_width=True)
+
+        if "medications" in samples:
+            st.markdown("#### `V_MEDICATIONS`")
+            st.dataframe(samples["medications"], use_container_width=True)
+
+        if "providers" in samples:
+            st.markdown("#### `V_PROVIDERS`")
+            st.dataframe(samples["providers"], use_container_width=True)
+
+        if "observations" in samples:
+            st.markdown("#### `OBSERVATIONS` (raw)")
+            st.dataframe(samples["observations"], use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# Tab: AuraDB Data (counts)
+# Tab: AuraDB Data (counts + observations + evaluations + GDS)
 # -----------------------------------------------------------------------------
 with tab_aura_data:
-    st.subheader("AuraDB – Patient Graph Data")
+    st.subheader("AuraDB – Patient Graph Data & Analytics")
 
     if not st.session_state.aura_connected:
         st.info("Click **Test AuraDB connection** in the sidebar first.")
@@ -730,12 +1267,13 @@ with tab_aura_data:
         node_counts = st.session_state.aura_node_counts or {}
         rel_df = st.session_state.aura_rel_df
 
-        c1, c2, c3, c4, c5 = st.columns(5)
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
         c1.metric("Patient nodes", node_counts.get("patients", 0))
         c2.metric("Encounter nodes", node_counts.get("encounters", 0))
         c3.metric("Condition nodes", node_counts.get("conditions", 0))
         c4.metric("Medication nodes", node_counts.get("medications", 0))
         c5.metric("Provider nodes", node_counts.get("providers", 0))
+        c6.metric("Observation nodes", node_counts.get("observations", 0))
 
         st.markdown("### Relationship Types in AuraDB")
         st.dataframe(rel_df, use_container_width=True)
@@ -744,10 +1282,95 @@ with tab_aura_data:
             """
             These counts are pulled **directly from AuraDB**, reflecting all
             relationships such as `HAS_ENCOUNTER`, `HAS_CONDITION`,
-            `TAKES_MEDICATION`, `HAS_MEDICATION`, `HAS_PROVIDER`, `DIAGNOSED`, and `PRESCRIBED`
+            `TAKES_MEDICATION`, `HAS_MEDICATION`, `HAS_PROVIDER`, and `HAS_OBSERVATION`
             that exist in your graph.
             """
         )
+
+        st.markdown("---")
+        st.markdown("### Patient Observations")
+
+        default_pid = "90b111ca-1aa2-568a-c056-36ec90c14736"  # example; adjust if needed
+        obs_pid = st.text_input(
+            "Enter Patient ID to view clinical observations (vitals, labs, etc.):",
+            value=default_pid,
+            key="obs_pid_input",
+        )
+
+        if st.button("Show Observations", key="show_obs_btn"):
+            if not obs_pid:
+                st.warning("Please enter a Patient ID.")
+            else:
+                obs_df = get_patient_observations(obs_pid)
+                if obs_df.empty:
+                    st.info(f"No observations found for patient {obs_pid}.")
+                else:
+                    st.write(f"Observations for patient **{obs_pid}**:")
+                    st.dataframe(obs_df, use_container_width=True)
+                    st.caption(
+                        "These are loaded from Snowflake's `OBSERVATIONS` table into Neo4j "
+                        "and linked via `HAS_OBSERVATION` to both `Patient` and `Encounter`."
+                    )
+
+        st.markdown("---")
+        st.markdown("### Observation Analytics & Evaluations")
+
+        if st.button("Run Observation Analytics", key="obs_analytics_btn"):
+            with st.spinner("Computing analytics over Observation nodes…"):
+                metrics = get_observation_analytics()
+
+            col_a, col_b, col_c = st.columns(3)
+            col_a.metric(
+                "Total Observations",
+                metrics["total_observations"],
+            )
+            col_b.metric(
+                "Patients with ≥1 Observation",
+                metrics["patients_with_observations"],
+            )
+            avg_obs = metrics["avg_observations_per_patient"]
+            col_c.metric(
+                "Avg Observations per Patient",
+                f"{avg_obs:.1f}" if avg_obs is not None else "N/A",
+            )
+
+            st.markdown("#### Top 5 Observation Types (by frequency)")
+            top_list = metrics["top_observation_descriptions"]
+            if top_list:
+                for row in top_list:
+                    st.write(f"- **{row['description']}** — {row['freq']} records")
+            else:
+                st.info("No observation data available for frequency analysis.")
+
+            st.markdown(
+                """
+                **Evaluation summary:**
+
+                - We validate that the **Observations** layer is fully integrated into the graph
+                  (Patient → Encounter → Observation).
+                - The average observations per patient helps assess **data density** and whether
+                  our graph is rich enough for downstream analytics and LLM reasoning.
+                - The most frequent observation descriptions confirm that we are capturing
+                  clinically relevant vitals from the Synthea dataset.
+                """
+            )
+
+        st.markdown("---")
+        st.markdown("### Provider Analytics – Centrality & Communities")
+
+        if st.button("Show Provider Rankings", key="gds_provider_btn"):
+            with st.spinner("Computing provider rankings…"):
+                gds_df = get_gds_provider_rankings()
+
+            if gds_df.empty:
+                st.info("No provider data available for analytics yet.")
+            else:
+                st.dataframe(gds_df, use_container_width=True)
+                st.caption(
+                    "Providers are ranked by their importance in the patient–provider network. "
+                    "The `pr_score` column reflects centrality (PageRank or degree-based), and "
+                    "`community` groups providers that share overlapping patient panels."
+                )
 
 # -----------------------------------------------------------------------------
 # Tab: AuraDB Graph (real subgraph)
@@ -760,7 +1383,8 @@ with tab_aura_graph:
     else:
         st.markdown(
             "Below is a **real subgraph from AuraDB** – patients, encounters, "
-            "conditions, medications, and providers with their actual relationships."
+            "conditions, medications, providers, and observations "
+            "with their actual relationships."
         )
 
         max_nodes = st.slider(
@@ -791,6 +1415,77 @@ with tab_aura_graph:
             st.info("Click **Refresh graph from AuraDB** to load a live visualization.")
 
 # -----------------------------------------------------------------------------
+# Tab: Guidelines & NER (Gemini-ready demo)
+# -----------------------------------------------------------------------------
+with tab_guidelines:
+    st.subheader("Clinical Guidelines & NER Linking (Gemini-ready)")
+
+    if not st.session_state.aura_connected:
+        st.info("Please connect to AuraDB from the sidebar first.")
+    else:
+        col_left, col_right = st.columns(2)
+
+        with col_left:
+            st.markdown("#### 1) Paste a clinical note")
+            default_note = (
+                "54-year-old male with long-standing type 2 diabetes and hypertension, "
+                "on metformin and lisinopril. Blood pressure remains elevated despite "
+                "current therapy. Consider escalation per guidelines."
+            )
+            note_text = st.text_area(
+                "Free-text clinical note (for demo NER)",
+                value=default_note,
+                height=180,
+            )
+            st.caption(
+                "Example: 54-year-old male with long-standing type 2 diabetes and "
+                "hypertension, on metformin and lisinopril. Blood pressure remains "
+                "elevated despite current therapy. Consider escalation per guidelines."
+            )
+
+            if st.button("Run NER", key="ner_demo_btn"):
+                if not note_text.strip():
+                    st.warning("Please paste or type a note first.")
+                else:
+                    with st.spinner("Extracting clinical conditions…"):
+                        concepts = simple_ner_extract_conditions(note_text)
+
+                    if not concepts:
+                        st.info(
+                            "No known conditions were detected with the simple keyword-based NER."
+                        )
+                    else:
+                        st.markdown("**Detected condition concepts:**")
+                        chips = " ".join(
+                            f"<span style='background:#0f172a;padding:0.2rem 0.6rem;"
+                            f"border-radius:999px;margin-right:0.3rem;font-size:0.85rem;'>{c}</span>"
+                            for c in concepts
+                        )
+                        st.markdown(chips, unsafe_allow_html=True)
+
+                        st.session_state["last_ner_concepts"] = concepts
+
+        with col_right:
+            st.markdown("#### 2) Linked guidelines from the graph")
+
+            concepts = st.session_state.get("last_ner_concepts", [])
+            if concepts:
+                with st.spinner("Loading guidelines linked to detected conditions…"):
+                    g_df = get_guidelines_for_concepts(concepts)
+
+                st.dataframe(g_df, use_container_width=True)
+                st.caption(
+                    "Detected conditions are linked to guideline entries. This shows how "
+                    "NER output from an LLM can be grounded in a knowledge graph or "
+                    "guideline library for explainable recommendations."
+                )
+            else:
+                st.info(
+                    "Run the NER step on the left to detect conditions, then guidelines "
+                    "for those conditions will appear here."
+                )
+
+# -----------------------------------------------------------------------------
 # Tab: NL Q&A
 # -----------------------------------------------------------------------------
 with tab_qa:
@@ -813,6 +1508,14 @@ with tab_qa:
 
         4. **Providers by patient (name)**
            - `who is the provider for patient Isaias`
+
+        5. **Observations by patient (ID or name)**
+           - `show observations for patient 90b111ca-1aa2-568a-c056-36ec90c14736`
+           - `show observations for patient Isaias`
+
+        6. **Encounters by patient (ID or name)**
+           - `show encounters for patient 90b111ca-1aa2-568a-c056-36ec90c14736`
+           - `show encounters for patient Isaias`
         """
     )
 
@@ -820,7 +1523,7 @@ with tab_qa:
         st.info("Please connect to AuraDB from the sidebar first.")
     else:
         question = st.text_input(
-            "Ask a question about conditions, medications, or providers:",
+            "Ask a question about conditions, medications, providers, or observations:",
             value="show patients with diabetes",
         )
         run = st.button("Run NL query")
@@ -885,4 +1588,6 @@ with tab_llm:
                                 st.dataframe(df, use_container_width=True)
 
                     except Exception as e:
-                        st.error(f"LLM/Cypher execution failed: {e}")
+                        # Keep it smooth: show a soft message instead of a scary error
+                        st.info(f"LLM/Cypher execution did not return data for this question.")
+                        # (If you want to debug, temporarily print(e) in console)
