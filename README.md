@@ -57,7 +57,9 @@ It enables semantic exploration of patient data—conditions, medications, and e
 3. ✅ Neo4j Schema Design & Graph Seeding  
 4. ✅ Streamlit Integration with Q&A and Visualization  
 5. ✅ Migration from Neo4j Desktop to AuraDB Cloud
-6. ✅ Successful Professor Demo and Feedback (Next: Add LLM Integration)  
+6. ✅ Successful Professor Demo and Feedback  
+7. ✅ Added LLM Integration (Next: Add Evaluations) 
+
 
 ---
 

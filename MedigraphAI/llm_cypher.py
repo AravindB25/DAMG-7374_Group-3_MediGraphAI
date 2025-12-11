@@ -33,18 +33,23 @@ Node labels and key properties:
 - Condition(code, name)
 - Medication(code, name)
 - Provider(id, name, specialty, state, zip)
+- Observation(id, description, value, unit, category, code, obs_datetime)
 
 Relationships:
 - (p:Patient)-[:HAS_ENCOUNTER]->(e:Encounter)
 - (p:Patient)-[:HAS_CONDITION]->(c:Condition)
 - (p:Patient)-[:TAKES_MEDICATION]->(m:Medication)
+- (p:Patient)-[:HAS_PROVIDER]->(pr:Provider)
 - (e:Encounter)-[:HAS_CONDITION]->(c:Condition)
 - (e:Encounter)-[:HAS_MEDICATION]->(m:Medication)
 - (e:Encounter)-[:HAS_PROVIDER]->(pr:Provider)
-- (p:Patient)-[:HAS_PROVIDER]->(pr:Provider)
+- (p:Patient)-[:HAS_OBSERVATION]->(o:Observation)
+- (e:Encounter)-[:HAS_OBSERVATION]->(o:Observation)
 
 Rules:
-- Always use the properties shown above (id, full_name, code, name, etc.).
+- Always use ONLY the labels and properties shown above.
+- When filtering by condition name (e.g. "diabetes"), use:
+  WHERE toLower(c.name) CONTAINS toLower('diabetes')
 - Prefer LOWER CASE functions like toLower() in WHERE filters.
 - Return tabular results (no graph-returning queries).
 - DO NOT use APOC.
