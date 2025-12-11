@@ -1,72 +1,133 @@
 # DAMG 7374 - GROUP 3 - MediGraph AI  
 ### *Intelligent Healthcare Knowledge Graph with LLM Integration*
 
-## 👥 Team Members  
-- **Aravind Balaji**  
-- **Sai Manasa Karanam**  
+---
+
+## 👥 Team Members
+- **Aravind Balaji**
+- **Sai Manasa Karanam**
 - **Varun Tadimeti**
 
 ---
 
-## 📘 Overview  
-**MediGraph AI** is an intelligent healthcare analytics platform that integrates structured clinical data from **Snowflake** and converts it into a connected **Neo4j Knowledge Graph**, visualized and queried through a **Streamlit** web interface.  
-It enables semantic exploration of patient data—conditions, medications, and encounters—while paving the path toward **LLM-powered clinical reasoning** and **GraphRAG-based question answering**.
+## 📘 Overview
+**MediGraph AI** is an intelligent clinical analytics platform that transforms structured EHR data from **Snowflake** into a connected **Neo4j AuraDB Knowledge Graph**, visualized through an interactive **Streamlit** application.
+
+The system supports semantic exploration of:
+- **Patients**
+- **Encounters**
+- **Conditions**
+- **Medications**
+- **Providers**
+- **Observations**
+
+It also provides **LLM-powered Cypher generation**, **Guideline linking**, and **NER-based concept extraction**, forming the foundation for **GraphRAG**-style clinical reasoning.
 
 ---
 
-## 🚀 Key Features  
-- **ETL Pipeline (Python + Snowflake)**  
-  - Loads and normalizes *Synthea EHR* datasets (Patients, Providers, Encounters, Conditions, Medications).  
-  - Creates analytical views for fast aggregation and filtering.
+## 🚀 Key Features
 
-- **Graph Construction (Neo4j Desktop → AuraDB)**  
-  - Transforms relational entities into labeled nodes and relationships.  
-  - Links Patients → Conditions → Medications → Encounters → Providers.  
-  - Supports migration to **Neo4j AuraDB** for cloud-based deployment.
-
-- **Interactive UI (Streamlit)**  
-  - Secure **MFA/TOTP** authentication for Snowflake access.  
-  - Query and visualize patient-condition networks with a **Pyvis** graph viewer.  
-  - Simple **natural-language Q&A** for graph exploration.  
-
-- **Future Extension**  
-  - Integration of **LLM modules** for semantic question understanding and **GraphRAG** reasoning.  
+### 🔹 ETL Pipeline (Python + Snowflake)
+- Loads Synthea EHR datasets:
+  - Patients, Providers, Encounters  
+  - Conditions, Medications, Observations  
+- Automatically caps ingestion (e.g., 7000 per entity) for fast demos  
+- Skips already-loaded entities  
+- Shows progress during ingestion  
+- Secure **MFA/TOTP** login to Snowflake  
 
 ---
 
-## 🧩 Tech Stack  
+### 🔹 Knowledge Graph Construction (Neo4j AuraDB)
+- Converts relational EHR tables into a healthcare semantic graph  
+- Creates relationships:
+  - `(Patient)-[:HAS_CONDITION]->(Condition)`
+  - `(Patient)-[:TAKES_MEDICATION]->(Medication)`
+  - `(Patient)-[:HAS_ENCOUNTER]->(Encounter)`
+  - `(Encounter)-[:HAS_PROVIDER]->(Provider)`
+  - `(Encounter)-[:HAS_OBSERVATION]->(Observation)`
+  - `(Patient)-[:HAS_OBSERVATION]->(Observation)`
+- Fully deployable to **AuraDB Cloud**
+
+---
+
+### 🔹 Interactive UI (Streamlit)
+- Clean sidebar authentication & connection  
+- Entity dashboards with sample data  
+- Graph viewer (Pyvis)  
+- Observations explorer  
+- **Evaluation module** detecting data completeness, missing attributes, etc.  
+
+---
+
+### 🔹 LLM-Powered Cypher Q&A
+- Converts natural-language questions ➜ valid Cypher queries  
+- Supports all entity types:
+  **Patients, Conditions, Encounters, Providers, Medications, Observations**
+- Clearly displays generated Cypher  
+- Executes queries on AuraDB and shows results  
+- Graceful fallback (no crashes, no blank errors)
+
+---
+
+### 🔹 Guidelines + NER Module
+- Text box: *“Paste a clinical note”*  
+- Extracts condition concepts (NER-ready for Gemini 3.0)  
+- Links extracted concepts to guideline nodes (if seeded in graph)  
+- Shows demo guidelines when graph data is missing  
+
+---
+
+## 🧩 Tech Stack
+
 | Layer | Technology |
-|-------|-------------|
+|------|------------|
 | Database (Structured) | **Snowflake Warehouse** |
-| Graph Database | **Neo4j → Neo4j AuraDB Cloud** |
-| Visualization & UI | **Streamlit + Pyvis** |
-| Language / ETL | **Python 3.12**, `pandas`, `neo4j`, `snowflake-connector-python` |
-| Environment Mgmt | `python-dotenv`, `venv` |
+| Graph Database | **Neo4j → AuraDB Cloud** |
+| UI / Visualization | **Streamlit + Pyvis** |
+| Backend / ETL | Python 3.12, `pandas`, `snowflake-connector-python`, `neo4j-driver` |
+| LLM | **OpenAI GPT (Cypher Generator)** |
 | Authentication | **MFA (TOTP via Google Authenticator)** |
+| Env Mgmt | `python-dotenv`, `venv` |
 
 ---
+
 
 ## 🧠 Project Architecture  
 **Snowflake (ETL + Views)** ➜ **Python Connector** ➜ **Neo4j Graph Model** ➜ **Streamlit UI** ➜ *(LLM Module future)*  
 
 ---
-
-## 🧭 Milestones Achieved  
-1. ✅ Snowflake ETL & View Creation  
-2. ✅ Secure MFA Authentication  
-3. ✅ Neo4j Schema Design & Graph Seeding  
-4. ✅ Streamlit Integration with Q&A and Visualization  
-5. ✅ Migration from Neo4j Desktop to AuraDB Cloud
-6. ✅ Successful Professor Demo and Feedback  
-7. ✅ Added LLM Integration (Next: Add Evaluations) 
-
-
 ---
 
-## ⚙️ How to Run  
+## 🧭 Milestones Achieved
+
+- ✅ Snowflake ETL & View Creation  
+- ✅ Secure MFA Authentication  
+- ✅ Neo4j Schema Design & Seeding  
+- ✅ Added Observations into graph  
+- ✅ Streamlit Dashboards + Graph Visualizer  
+- ✅ NL Q&A (rule-based)  
+- ✅ LLM-based Cypher Generator  
+- ✅ Guidelines + NER Module  
+- ✅ Dataset Evaluation Module  
+- ✅ Incorporated professor feedback (Added Observations,Evaluations, improve linking, expand Q&A)
+- ✅ Project completed as per initial scope and ready for final presentation/demo.
+---
+
+## ⚙️ How to Run
+
 ```bash
+# Clone repository
 git clone https://github.com/<your-username>/MediGraphAI.git
 cd MediGraphAI
-python -m venv venv && source venv/bin/activate
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate        # macOS/Linux
+venv\Scripts\activate           # Windows
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Run the app
 streamlit run app.py
