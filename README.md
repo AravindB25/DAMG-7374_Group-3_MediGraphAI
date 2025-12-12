@@ -121,13 +121,7 @@ It also provides **LLM-powered Cypher generation**, **Guideline linking**, and *
 
 
 ## 🧠 Project Architecture Diagram 
-
-Snowflake (ETL + Analytical Views)
-➜ Python ETL & Connector Layer
-➜ Neo4j AuraDB Knowledge Graph
-➜ Streamlit Interactive Application
-➜ LLM Reasoning & GraphRAG (Future Extension) 
-
+ 
 ![MediGraph AI – Project Architecture](https://github.com/AravindB25/DAMG-7374_Group-3_MediGraphAI/blob/main/Medigraph%20AI%20detailed%20Architecture%20diagram.png)
 
 ---
