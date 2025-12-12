@@ -10,9 +10,9 @@
 
 ---
 
-🧑‍💻 Team Members & Contributions
+## 🧑‍💻 Team Members & Contributions
 
-Aravind Balaji
+**Aravind Balaji**
 • Led overall system architecture and end-to-end integration
 • Designed and implemented the Snowflake → Neo4j AuraDB ETL pipeline with MFA/TOTP authentication
 • Built the Neo4j healthcare knowledge graph schema (Patients, Encounters, Conditions, Medications, Providers, Observations)
@@ -23,7 +23,7 @@ Aravind Balaji
 
 ⸻
 
-Sai Manasa Karanam
+**Sai Manasa Karanam**
 • Designed and implemented Snowflake database schemas and analytical views
 • Loaded and validated Synthea EHR datasets in Snowflake
 • Created optimized Snowflake views for Patients, Encounters, Conditions, Medications, Providers, and Observations
@@ -31,7 +31,7 @@ Sai Manasa Karanam
 
 ⸻
 
-Varun Tadimeti
+**Varun Tadimeti**
 • Designed and implemented the Neo4j graph data model
 • Created node labels, relationships, and constraints for healthcare entities
 • Developed and optimized Cypher queries for graph traversal and analytics
