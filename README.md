@@ -10,6 +10,16 @@
 
 ---
 
+## **Team Member Contributions**
+
+**Aravind Balaji**
+• Led overall system architecture and end-to-end integration• Designed and implemented the Snowflake → Neo4j AuraDB ETL pipeline with MFA/TOTP authentication• Built the Neo4j healthcare knowledge graph schema (Patients, Encounters, Conditions, Medications, Providers, Observations)• Developed the Streamlit application (dashboards, graph visualization, NL Q&A, LLM-powered Cypher generation)• Integrated Observations and Evaluation modules based on professor feedback• Implemented NER-ready pipeline and guideline linking framework• Led testing, debugging, demo preparation, and final presentation
+**Sai Manasa Karanam**
+• Designed and implemented Snowflake database schemas and analytical views• Loaded and validated Synthea EHR datasets in Snowflake• Created optimized Snowflake views for Patients, Encounters, Conditions, Medications, Providers, and Observations• Ensured data normalization, quality checks, and query performance in Snowflake
+**Varun Tadimeti**
+• Designed and implemented the Neo4j graph data model• Created node labels, relationships, and constraints for healthcare entities• Developed and optimized Cypher queries for graph traversal and analytics• Validated semantic correctness of the Neo4j knowledge graph and supported AuraDB deployment
+
+
 ## 📘 Overview
 **MediGraph AI** is an intelligent clinical analytics platform that transforms structured EHR data from **Snowflake** into a connected **Neo4j AuraDB Knowledge Graph**, visualized through an interactive **Streamlit** application.
 
