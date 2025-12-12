@@ -128,7 +128,7 @@ Snowflake (ETL + Analytical Views)
 ➜ Streamlit Interactive Application
 ➜ LLM Reasoning & GraphRAG (Future Extension) 
 
-![MediGraph AI – Project Architecture](./Medigraph AI detailed Architecture diagram.png)
+![MediGraph AI – Project Architecture](https://github.com/AravindB25/DAMG-7374_Group-3_MediGraphAI/blob/main/Medigraph%20AI%20detailed%20Architecture%20diagram.png)
 
 ---
 ---
