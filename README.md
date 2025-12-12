@@ -121,7 +121,12 @@ It also provides **LLM-powered Cypher generation**, **Guideline linking**, and *
 
 
 ## 🧠 Project Architecture  
-**Snowflake (ETL + Views)** ➜ **Python Connector** ➜ **Neo4j Graph Model** ➜ **Streamlit UI** ➜ *(LLM Module future)*  
+
+Snowflake (ETL + Analytical Views)
+➜ Python ETL & Connector Layer
+➜ Neo4j AuraDB Knowledge Graph
+➜ Streamlit Interactive Application
+➜ LLM Reasoning & GraphRAG (Future Extension) 
 
 ---
 ---
