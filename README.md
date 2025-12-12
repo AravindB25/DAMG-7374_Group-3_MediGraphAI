@@ -125,6 +125,49 @@ It also provides **LLM-powered Cypher generation**, **Guideline linking**, and *
 ![MediGraph AI – Project Architecture](https://github.com/AravindB25/DAMG-7374_Group-3_MediGraphAI/blob/main/Medigraph%20AI%20detailed%20Architecture%20diagram.png)
 
 ---
+## 📊 Analytics (Quantitative & Qualitative)
+
+### 🔹 Quantitative Analytics
+
+#### Snowflake – MEDIGRAPH Views
+| View | Record Count |
+|-----|--------------|
+| V_PATIENTS | 121 |
+| V_ENCOUNTERS | 7,688 |
+| V_CONDITIONS | 4,750 |
+| V_MEDICATIONS | 7,455 |
+| V_PROVIDERS | 282 |
+| OBSERVATIONS | 112,177 |
+
+#### Neo4j AuraDB – Graph Statistics
+- **Total Nodes:** 78,332  
+- **Total Relationships:** 170,189  
+
+| Node Type | Count |
+|----------|-------|
+| Patient | 121 |
+| Encounter | 7,688 |
+| Condition | 202 |
+| Medication | 144 |
+| Provider | 282 |
+| Observation | 69,891 |
+
+---
+
+### 🔹 Qualitative Analytics
+The graph captures the **clinical care journey**:
+
+- Patient → Encounter → Provider  
+- Encounter → Condition → Medication  
+- Patient & Encounter → Observations  
+
+This structure enables:
+- Longitudinal patient analysis  
+- Provider-centric insights  
+- Observation-driven clinical analytics  
+- Explainable graph traversal paths  
+
+---
 ---
 
 ## 🧭 Milestones Achieved
@@ -138,7 +181,7 @@ It also provides **LLM-powered Cypher generation**, **Guideline linking**, and *
 - ✅ LLM-based Cypher Generator  
 - ✅ Guidelines + NER Module  
 - ✅ Dataset Evaluation Module  
-- ✅ Incorporated professor feedback (Added Observations,Evaluations, improve linking, expand Q&A)
+- ✅ Incorporated professor feedback (Added Observations,Evaluations, improve linking, expand Q&A & Analytics data)
 - ✅ Project completed as per initial scope and ready for final presentation/demo.
 ---
 
