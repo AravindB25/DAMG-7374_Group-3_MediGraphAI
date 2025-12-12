@@ -145,8 +145,8 @@ It also provides **LLM-powered Cypher generation**, **Guideline linking**, and *
 
 | Node Type | Count |
 |----------|-------|
-| Patient | 122 |
-| Encounter | 7,689 |
+| Patient | 121 |
+| Encounter | 7,688 |
 | Condition | 202 |
 | Medication | 144 |
 | Provider | 282 |
@@ -181,7 +181,7 @@ This structure enables:
 - ✅ LLM-based Cypher Generator  
 - ✅ Guidelines + NER Module  
 - ✅ Dataset Evaluation Module  
-- ✅ Incorporated professor feedback (Added Observations,Evaluations, improve linking, expand Q&A)
+- ✅ Incorporated professor feedback (Added Observations,Evaluations, improve linking, expand Q&A & Analytics data)
 - ✅ Project completed as per initial scope and ready for final presentation/demo.
 ---
 
